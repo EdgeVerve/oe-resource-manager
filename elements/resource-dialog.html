@@ -1,0 +1,119 @@
+<!-- ©2015-2016 EdgeVerve Systems Limited (a fully owned Infosys subsidiary), Bangalore, India. All Rights Reserved.
+The EdgeVerve proprietary software program ("Program"), is protected by copyrights laws, international treaties and other pending or existing intellectual property rights in India, the United States and other countries.
+The Program may contain/reference third party or open source components, the rights to which continue to 
+remain with the applicable third party licensors or the open source community as the case may be and nothing 
+here transfers the rights to the third party and open source components, except as expressly permitted. 
+Any unauthorized reproduction, storage, transmission in any form or by any means (including without limitation to electronic, mechanical, printing, photocopying, recording or  otherwise), or any distribution of this Program,or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. -->
+<dom-module id="resource-dialog">
+
+  <style include="oe-studio-styles">
+    .dialog-content {
+      min-width: 350px;
+    }
+   
+    .helper-text {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+    }
+
+    paper-progress {
+      width: 100%;
+      margin-top: 24px;
+    }
+
+    .file-name {
+      padding: 8px 0px;
+    }
+
+    .upload-title {
+      padding-top: 20px;
+      display: block;
+    }
+
+    #progressBar {
+      --paper-progress-active-color: var(--accent-color);
+    }
+    .dialog-footer{
+      margin-bottom:0px;
+    }
+  </style>
+  <template>
+    <style include="shared-styles"></style>
+    <paper-dialog id="dialog" class="dark-theme-dialog oe-dialog">
+      <div class="dialog-header">Add Resource</div>
+      <div class="dialog-content">
+        <form is="iron-form" id="form">
+          <label class="helper-text upload-title">Upload Resource File</label>
+          <oe-file-input show-clear value-type="binary" id="filePicker" 
+            value={{resourceObj.content}} file-type={{resourceObj.type}} file-name={{resourceObj.name}}
+            file-size={{resourceObj.size}}>
+          </oe-file-input>
+          <oe-input required no-label-float value="{{resourceObj.name}}" label="Name" hidden="{{!resourceObj.content}}"></oe-input>
+          <oe-json-input no-label-float value="{{resourceObj.scope}}" placeholder="Scope"></oe-json-input>
+          <template is="dom-if" if="{{isloading}}">
+            <paper-progress id="progressBar" indeterminate></paper-progress>
+          </template>
+        </form>
+      </div>
+      <div class="dialog-footer layout horizontal end-justified">
+        <paper-button id="cancel" on-tap="hide">CANCEL</paper-button>
+        <paper-button id="add" secondary on-tap="saveResource">SAVE</paper-button>
+      </div>
+    </paper-dialog>
+    <oe-ajax id="ajax" loading="{{isloading}}" content-type="application/json" handle-as="json" on-error="handleError"
+      on-response="handleResponse"></oe-ajax>
+  </template>
+  <script>
+    Polymer({
+      is: 'resource-dialog',
+      properties: {
+        resourceObj: {
+          type: Object,
+          notify: true,
+          value: function () {
+            return {}
+          }
+        },
+        resourceList: {
+          type: Array,
+          notify: true
+        }
+      },
+      behaviors: [OEUtils.AjaxBehavior],
+      open: function () {
+        this.set('resourceObj', this.resourceObj);
+        this.$.dialog.open();
+      },
+      hide: function () {
+        this.$.dialog.close();
+      },
+      saveResource: function () {
+        if (!(this.resourceObj.content && this.resourceObj.name)) {
+          return;
+        }
+        this.resourceObj.type = this.$.filePicker.fileType;
+        var ajax = this.$.ajax;
+        ajax.url = this._getRestApiUrl('/UIResources')
+        ajax.body = JSON.stringify(this.resourceObj);
+        ajax.method = this.editMode ? 'PUT' : 'POST';
+        ajax.generateRequest();
+      },
+      handleError: function (event) {
+        this.fire('oe-show-error', OEUtils.extractErrorMessage(event));
+      },
+      handleResponse: function (event) {
+        var resource = event.detail.response;
+        if (!this.editMode) {
+          this.push('resourceList', resource);
+        } else {
+          var index = this.resourceList.findIndex(function (obj) {
+            return obj.id == resource.id;
+          });
+          this.set('resourceList.' + index, resource);
+          this.fire('update-resource', resource)
+        }
+        this.hide();
+      }
+    });
+  </script>
+</dom-module>
